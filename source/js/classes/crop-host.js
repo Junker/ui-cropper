@@ -518,6 +518,7 @@ angular.module('uiCropper').factory('cropHost', ['$document', '$q', 'cropAreaCir
             return theArea;
         };
 
+
         this.setNewImageSource = function (imageSource) {
             image = null;
             resetCropHost();
@@ -526,83 +527,93 @@ angular.module('uiCropper').factory('cropHost', ['$document', '$q', 'cropAreaCir
                 newImage.onload = function () {
                     events.trigger('load-done');
 
-                    cropEXIF.getData(newImage, function () {
-                        var orientation = cropEXIF.getTag(newImage, 'Orientation');
-
-                        if ([3, 6, 8].indexOf(orientation) > -1) {
-                            var canvas = document.createElement('canvas'),
-                                ctx = canvas.getContext('2d'),
-                                cw = newImage.width,
-                                ch = newImage.height,
-                                cx = 0,
-                                cy = 0,
-                                deg = 0,
-                                rw = 0,
-                                rh = 0;
-                            rw = cw;
-                            rh = ch;
-                            switch (orientation) {
-                                case 3:
-                                    cx = -newImage.width;
-                                    cy = -newImage.height;
-                                    deg = 180;
-                                    break;
-                                case 6:
-                                    cw = newImage.height;
-                                    ch = newImage.width;
-                                    cy = -newImage.height;
-                                    rw = ch;
-                                    rh = cw;
-                                    deg = 90;
-                                    break;
-                                case 8:
-                                    cw = newImage.height;
-                                    ch = newImage.width;
-                                    cx = -newImage.width;
-                                    rw = ch;
-                                    rh = cw;
-                                    deg = 270;
-                                    break;
-                            }
-
-                            //// canvas.toDataURL will only work if the canvas isn't too large. Resize to 1000px.
-                            var maxWorH = 1000;
-                            if (cw > maxWorH || ch > maxWorH) {
-                                var p = 0;
-                                if (cw > maxWorH) {
-                                    p = (maxWorH) / cw;
-                                    cw = maxWorH;
-                                    ch = p * ch;
-                                } else if (ch > maxWorH) {
-                                    p = (maxWorH) / ch;
-                                    ch = maxWorH;
-                                    cw = p * cw;
-                                }
-
-                                cy = p * cy;
-                                cx = p * cx;
-                                rw = p * rw;
-                                rh = p * rh;
-                            }
-
-                            canvas.width = cw;
-                            canvas.height = ch;
-                            ctx.rotate(deg * Math.PI / 180);
-                            ctx.drawImage(newImage, cx, cy, rw, rh);
-
-                            image = new Image();
-                            image.onload = function () {
-                                resetCropHost();
-                                events.trigger('image-updated');
-                            };
-
-                            image.src = canvas.toDataURL(resImgFormat);
-                        } else {
+                    cropEXIF.supportsExifOrientation(function(exifOrientSupported) {
+                        if (exifOrientSupported) {
                             image = newImage;
                             events.trigger('image-updated');
+                            resetCropHost();
                         }
-                        resetCropHost();
+                        else {
+                            cropEXIF.getData(newImage, function () {
+                                var orientation = cropEXIF.getTag(newImage, 'Orientation');
+
+                                if ([3, 6, 8].indexOf(orientation) > -1) {
+                                    var canvas = document.createElement('canvas'),
+                                        ctx = canvas.getContext('2d'),
+                                        cw = newImage.width,
+                                        ch = newImage.height,
+                                        cx = 0,
+                                        cy = 0,
+                                        deg = 0,
+                                        rw = 0,
+                                        rh = 0;
+                                    rw = cw;
+                                    rh = ch;
+                                    switch (orientation) {
+                                        case 3:
+                                            cx = -newImage.width;
+                                            cy = -newImage.height;
+                                            deg = 180;
+                                            break;
+                                        case 6:
+                                            cw = newImage.height;
+                                            ch = newImage.width;
+                                            cy = -newImage.height;
+                                            rw = ch;
+                                            rh = cw;
+                                            deg = 90;
+                                            break;
+                                        case 8:
+                                            cw = newImage.height;
+                                            ch = newImage.width;
+                                            cx = -newImage.width;
+                                            rw = ch;
+                                            rh = cw;
+                                            deg = 270;
+                                            break;
+                                    }
+
+                                    //// canvas.toDataURL will only work if the canvas isn't too large. Resize to 1000px.
+                                    var maxWorH = 1000;
+                                    if (cw > maxWorH || ch > maxWorH) {
+                                        var p = 0;
+                                        if (cw > maxWorH) {
+                                            p = (maxWorH) / cw;
+                                            cw = maxWorH;
+                                            ch = p * ch;
+                                        } else if (ch > maxWorH) {
+                                            p = (maxWorH) / ch;
+                                            ch = maxWorH;
+                                            cw = p * cw;
+                                        }
+
+                                        cy = p * cy;
+                                        cx = p * cx;
+                                        rw = p * rw;
+                                        rh = p * rh;
+                                    }
+
+                                    canvas.width = cw;
+                                    canvas.height = ch;
+                                    ctx.rotate(deg * Math.PI / 180);
+                                    ctx.drawImage(newImage, cx, cy, rw, rh);
+
+                                    image = new Image();
+                                    image.onload = function () {
+                                        resetCropHost();
+                                        events.trigger('image-updated');
+                                    };
+
+                                    image.src = canvas.toDataURL(resImgFormat);
+                                } else {
+                                    image = newImage;
+                                    events.trigger('image-updated');
+                                }
+                                resetCropHost();
+                            });
+                        }
                     });
+
                 };
                 newImage.onerror = function () {
                     events.trigger('load-error');

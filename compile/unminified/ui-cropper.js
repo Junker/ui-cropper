@@ -2,10 +2,10 @@
  * uiCropper v1.0.9
  * https://crackerakiua.github.io/ui-cropper/
  *
- * Copyright (c) 2019 Alex Kaul
+ * Copyright (c) 2020 Alex Kaul
  * License: MIT
  *
- * Generated at Monday, May 20th, 2019, 10:17:03 PM
+ * Generated at Friday, July 24th, 2020, 9:07:51 PM
  */
 (function() {
 angular.module('uiCropper', []);
@@ -2274,6 +2274,19 @@ angular.module('uiCropper').service('cropEXIF', [function () {
         return strPretty;
     };
 
+    this.supportsExifOrientation = function (cb) {
+        var img = new Image();
+        img.onerror = function() {
+            cb(false);
+        };
+
+        img.onload = function() {
+            cb(img.width !== 2);
+        };
+
+        img.src = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/4QAiRXhpZgAASUkqAAgAAAABABIBAwABAAAABgASAAAAAAD/2wBDAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/2wBDAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/wAARCAABAAIDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD+/iiiigD/2Q==';
+    };
+
     this.readFromBinaryFile = function (file) {
         return findEXIFinJPEG(file);
     };
@@ -2803,83 +2816,93 @@ angular.module('uiCropper').factory('cropHost', ['$document', '$q', 'cropAreaCir
                 newImage.onload = function () {
                     events.trigger('load-done');
 
-                    cropEXIF.getData(newImage, function () {
-                        var orientation = cropEXIF.getTag(newImage, 'Orientation');
-
-                        if ([3, 6, 8].indexOf(orientation) > -1) {
-                            var canvas = document.createElement('canvas'),
-                                ctx = canvas.getContext('2d'),
-                                cw = newImage.width,
-                                ch = newImage.height,
-                                cx = 0,
-                                cy = 0,
-                                deg = 0,
-                                rw = 0,
-                                rh = 0;
-                            rw = cw;
-                            rh = ch;
-                            switch (orientation) {
-                                case 3:
-                                    cx = -newImage.width;
-                                    cy = -newImage.height;
-                                    deg = 180;
-                                    break;
-                                case 6:
-                                    cw = newImage.height;
-                                    ch = newImage.width;
-                                    cy = -newImage.height;
-                                    rw = ch;
-                                    rh = cw;
-                                    deg = 90;
-                                    break;
-                                case 8:
-                                    cw = newImage.height;
-                                    ch = newImage.width;
-                                    cx = -newImage.width;
-                                    rw = ch;
-                                    rh = cw;
-                                    deg = 270;
-                                    break;
-                            }
-
-                            //// canvas.toDataURL will only work if the canvas isn't too large. Resize to 1000px.
-                            var maxWorH = 1000;
-                            if (cw > maxWorH || ch > maxWorH) {
-                                var p = 0;
-                                if (cw > maxWorH) {
-                                    p = (maxWorH) / cw;
-                                    cw = maxWorH;
-                                    ch = p * ch;
-                                } else if (ch > maxWorH) {
-                                    p = (maxWorH) / ch;
-                                    ch = maxWorH;
-                                    cw = p * cw;
-                                }
-
-                                cy = p * cy;
-                                cx = p * cx;
-                                rw = p * rw;
-                                rh = p * rh;
-                            }
-
-                            canvas.width = cw;
-                            canvas.height = ch;
-                            ctx.rotate(deg * Math.PI / 180);
-                            ctx.drawImage(newImage, cx, cy, rw, rh);
-
-                            image = new Image();
-                            image.onload = function () {
-                                resetCropHost();
-                                events.trigger('image-updated');
-                            };
-
-                            image.src = canvas.toDataURL(resImgFormat);
-                        } else {
+                    cropEXIF.supportsExifOrientation(function(exifOrientSupported) {
+                        if (exifOrientSupported) {
                             image = newImage;
                             events.trigger('image-updated');
+                            resetCropHost();
                         }
-                        resetCropHost();
+                        else {
+                            cropEXIF.getData(newImage, function () {
+                                var orientation = cropEXIF.getTag(newImage, 'Orientation');
+
+                                if ([3, 6, 8].indexOf(orientation) > -1) {
+                                    var canvas = document.createElement('canvas'),
+                                        ctx = canvas.getContext('2d'),
+                                        cw = newImage.width,
+                                        ch = newImage.height,
+                                        cx = 0,
+                                        cy = 0,
+                                        deg = 0,
+                                        rw = 0,
+                                        rh = 0;
+                                    rw = cw;
+                                    rh = ch;
+                                    switch (orientation) {
+                                        case 3:
+                                            cx = -newImage.width;
+                                            cy = -newImage.height;
+                                            deg = 180;
+                                            break;
+                                        case 6:
+                                            cw = newImage.height;
+                                            ch = newImage.width;
+                                            cy = -newImage.height;
+                                            rw = ch;
+                                            rh = cw;
+                                            deg = 90;
+                                            break;
+                                        case 8:
+                                            cw = newImage.height;
+                                            ch = newImage.width;
+                                            cx = -newImage.width;
+                                            rw = ch;
+                                            rh = cw;
+                                            deg = 270;
+                                            break;
+                                    }
+
+                                    //// canvas.toDataURL will only work if the canvas isn't too large. Resize to 1000px.
+                                    var maxWorH = 1000;
+                                    if (cw > maxWorH || ch > maxWorH) {
+                                        var p = 0;
+                                        if (cw > maxWorH) {
+                                            p = (maxWorH) / cw;
+                                            cw = maxWorH;
+                                            ch = p * ch;
+                                        } else if (ch > maxWorH) {
+                                            p = (maxWorH) / ch;
+                                            ch = maxWorH;
+                                            cw = p * cw;
+                                        }
+
+                                        cy = p * cy;
+                                        cx = p * cx;
+                                        rw = p * rw;
+                                        rh = p * rh;
+                                    }
+
+                                    canvas.width = cw;
+                                    canvas.height = ch;
+                                    ctx.rotate(deg * Math.PI / 180);
+                                    ctx.drawImage(newImage, cx, cy, rw, rh);
+
+                                    image = new Image();
+                                    image.onload = function () {
+                                        resetCropHost();
+                                        events.trigger('image-updated');
+                                    };
+
+                                    image.src = canvas.toDataURL(resImgFormat);
+                                } else {
+                                    image = newImage;
+                                    events.trigger('image-updated');
+                                }
+                                resetCropHost();
+                            });
+                        }
                     });
+
                 };
                 newImage.onerror = function () {
                     events.trigger('load-error');
